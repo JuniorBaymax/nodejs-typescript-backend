@@ -26,4 +26,7 @@ export default {
   verifyToken: Joi.object().keys({
     token: Joi.string().required(),
   }),
+  newPassword: Joi.object().keys({
+    password: Joi.string().min(6).required(),
+  }),
 };

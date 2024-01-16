@@ -2,6 +2,7 @@ import { ProtectedRequest, PublicRequest } from 'app.request.js';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import express, { Response } from 'express';
+import _ from 'lodash';
 import { v4 as uuidv4 } from 'uuid';
 import { createTokens } from '../../auth/authUtils.js';
 import authentication from '../../auth/authentication.js';
@@ -87,7 +88,7 @@ router.post(
 );
 
 router.post(
-  '/reset',
+  '/forgot-password',
   validator(schema.resetPassword, ValidationSource.BODY),
   asyncHandler(async (req: PublicRequest, res: Response) => {
     const email = req.body.email;
@@ -117,6 +118,42 @@ router.post(
     new SuccessResponse('Verification token sent successfully!', {
       token: twoFactorToken,
     }).send(res);
+  }),
+);
+
+router.patch(
+  '/new-password/:token',
+  validator(schema.verifyToken, ValidationSource.PARAM),
+  validator(schema.newPassword, ValidationSource.BODY),
+  asyncHandler(async (req: PublicRequest, res: Response) => {
+    const token = req.params.token;
+    console.log({ token });
+
+    const existingToken = await VerificationTokenRepo.findByKey(token);
+
+    console.log(existingToken);
+    if (!existingToken) throw new BadRequestError('Invalid token!');
+
+    const hasExpired = new Date(existingToken.createdAt as Date) < new Date();
+
+    if (hasExpired) throw new BadRequestError('Token has expired!');
+
+    const user = await UserRepo.findById(existingToken.client);
+
+    if (!user) throw new BadRequestError('Email does not exist');
+
+    const passwordHash = await bcrypt.hash(req.body.password, 10);
+    await UserRepo.updateInfo({
+      _id: user._id,
+      password: passwordHash,
+    } as User);
+
+    await KeyStoreRepo.removeAllForClient(user);
+    await VerificationTokenRepo.remove(existingToken._id);
+    new SuccessResponse(
+      'User password updated',
+      _.pick(user, ['_id', 'name', 'email']),
+    ).send(res);
   }),
 );
 

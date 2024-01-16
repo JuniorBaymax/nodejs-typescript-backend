@@ -1,3 +1,4 @@
+import { Types } from 'mongoose';
 import User from '../model/User.js';
 import VerificationToken, {
   VerificationTokenModel,
@@ -41,10 +42,14 @@ async function update(params: VerificationToken) {
     .lean()
     .exec();
 }
+async function remove(id: Types.ObjectId): Promise<VerificationToken | null> {
+  return VerificationTokenModel.findByIdAndRemove(id).lean().exec();
+}
 
 export default {
   create,
   update,
+  remove,
   findByKey,
   findByEmail,
 };
