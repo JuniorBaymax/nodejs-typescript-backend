@@ -25,6 +25,7 @@
   "author": "Janishar Ali",
   "license": "Apache-2.0",
   "dependencies": {
+    "@prisma/client": "^5.8.1",
     "axios": "^1.2.1",
     "bcrypt": "^5.1.0",
     "cookie-parser": "^1.4.6",
@@ -85,6 +86,7 @@
     "jest": "^29.3.1",
     "nodemon": "^2.0.20",
     "prettier": "^2.8.1",
+    "prisma": "^5.8.1",
     "supertest": "^6.3.3",
     "ts-jest": "^29.0.3",
     "ts-node": "^10.9.1",

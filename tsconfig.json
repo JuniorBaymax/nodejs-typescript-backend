@@ -30,6 +30,7 @@
       "~/*": ["./src/*"]
     }
   },
+  "files": ["src/types/types.d.ts"],
   "include": ["src/**/*", "**/*.ts"],
   "exclude": ["node_modules/*", ".templates"]
 }
