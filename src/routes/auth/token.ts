@@ -1,13 +1,9 @@
 import express, { Response } from 'express';
-import {
-  SuccessResponse,
-  TokenRefreshResponse,
-} from '../../core/ApiResponse.js';
+import { TokenRefreshResponse } from '../../core/ApiResponse.js';
 
-import { ProtectedRequest, PublicRequest } from 'app.request.js';
+import { ProtectedRequest } from 'app.request.js';
 import crypto from 'crypto';
 import { Types } from 'mongoose';
-import { v4 as uuidv4 } from 'uuid';
 
 import {
   createTokens,
@@ -16,12 +12,10 @@ import {
 } from '../../auth/authUtils.js';
 import { AuthFailureError } from '../../core/ApiError.js';
 import JWT from '../../core/JWT.js';
-import { VerificationTokenModel } from '../../database/model/VerificationToken.js';
+
 import KeystoreRepo from '../../database/repository/KeyStoreRepo.js';
 import UserRepo from '../../database/repository/UserRepo.js';
-import VerificationTokenRepo from '../../database/repository/VerificationTokenRepo.js';
 import asyncHandler from '../../helpers/asyncHandler.js';
-import { sendPasswordResetEmail } from '../../helpers/mail.js';
 import validator, { ValidationSource } from '../../helpers/validator.js';
 import schema from './schema.js';
 
@@ -73,40 +67,6 @@ router.post(
       tokens.accessToken,
       tokens.refreshToken,
     ).send(res);
-  }),
-);
-
-router.post(
-  '/reset',
-  validator(schema.resetPassword, ValidationSource.BODY),
-  asyncHandler(async (req: PublicRequest, res: Response) => {
-    const email = req.body.email;
-    const user = await UserRepo.findByEmail(req.body.email);
-    if (!user) throw new AuthFailureError('User not registered');
-
-    const token = uuidv4();
-    /**
-     * The token will expires in 1 hour
-     */
-    const expires = new Date(new Date().getTime() + 3600 * 1000);
-
-    const existingToken = await VerificationTokenRepo.findByEmail(email);
-
-    if (existingToken) {
-      await VerificationTokenModel.findByIdAndDelete(existingToken._id);
-    }
-
-    const twoFactorToken = await VerificationTokenRepo.create(
-      user,
-      email,
-      token,
-      expires,
-    );
-
-    await sendPasswordResetEmail(email, twoFactorToken.token);
-    new SuccessResponse('Verification token sent successfully!', {
-      token: twoFactorToken,
-    }).send(res);
   }),
 );
 
