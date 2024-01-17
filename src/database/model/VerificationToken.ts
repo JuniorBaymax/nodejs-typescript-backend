@@ -9,7 +9,7 @@ export default interface VerificationToken {
   client: Types.ObjectId;
   email: User;
   token: string;
-  expires: string;
+  expires: Date;
   status?: boolean;
   createdAt?: Date;
   updatedAt?: Date;
@@ -35,6 +35,7 @@ const schema = new Schema<VerificationToken>(
       type: Schema.Types.Boolean,
       default: true,
     },
+    expires: { type: Schema.Types.Date, required: true },
     createdAt: {
       type: Schema.Types.Date,
       required: true,

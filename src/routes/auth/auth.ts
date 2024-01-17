@@ -134,7 +134,7 @@ router.patch(
     console.log(existingToken);
     if (!existingToken) throw new BadRequestError('Invalid token!');
 
-    const hasExpired = new Date(existingToken.createdAt as Date) < new Date();
+    const hasExpired = new Date(existingToken.expires) < new Date();
 
     if (hasExpired) throw new BadRequestError('Token has expired!');
 
