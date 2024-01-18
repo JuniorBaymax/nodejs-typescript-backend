@@ -33,3 +33,31 @@ export const caching = {
     process.env.CONTENT_CACHE_DURATION_MILLIS || '600000',
   ),
 };
+
+// Cookie options
+export const accessTokenCookieOptions = {
+  expires: new Date(
+    Date.now() +
+      (process.env.ACCESS_COOKIE_EXPIRES_IN &&
+      !isNaN(Number(process.env.ACCESS_COOKIE_EXPIRES_IN))
+        ? Number(process.env.ACCESS_COOKIE_EXPIRES_IN) * 60 * 1000
+        : 600000), // Default value if the environment variable is not set or is not a valid number
+  ),
+  maxAge: 24 * 60 * 1000,
+  httpOnly: false,
+  sameSite: 'lax',
+};
+
+export const refreshTokenCookieOptions = {
+  expires: new Date(
+    Date.now() +
+      (process.env.ACCESS_COOKIE_EXPIRES_IN &&
+      !isNaN(Number(process.env.ACCESS_COOKIE_EXPIRES_IN))
+        ? Number(process.env.ACCESS_COOKIE_EXPIRES_IN) * 60 * 1000
+        : 600000), // Default value if the environment variable is not set or is not a valid number
+  ),
+  // maxAge: process.env.REFRESH_COOKIE_EXPIRES_IN * 60 * 1000,
+  maxAge: 59 * 60 * 1000,
+  httpOnly: false,
+  sameSite: 'lax',
+};

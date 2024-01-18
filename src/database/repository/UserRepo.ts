@@ -132,12 +132,31 @@ async function findUsersByIds(userIds?: string[]): Promise<any> {
   return UserModel.find(query).select('+email').lean().exec();
 }
 
+async function findGoogleUser(
+  email: string,
+  name: string,
+  picture: string,
+): Promise<User | null> {
+  return UserModel.findOne(
+    { email },
+    {
+      name,
+      photo: picture,
+      email,
+      provider: 'Google',
+      verified: true,
+    },
+    { upsert: true, runValidators: false, new: true, lean: true },
+  );
+}
+
 export default {
   exists,
   allUsers,
   findPrivateProfileById,
   findUsersByIds,
   findById,
+  findGoogleUser,
   findByEmail,
   findFieldsById,
   findPublicProfileById,

@@ -4,9 +4,17 @@ import crypto from 'crypto';
 import express, { Response } from 'express';
 import _ from 'lodash';
 import { v4 as uuidv4 } from 'uuid';
-import { createTokens } from '../../auth/authUtils.js';
+import {
+  createTokens,
+  getGoogleOauthToken,
+  getGoogleUser,
+} from '../../auth/authUtils.js';
 import authentication from '../../auth/authentication.js';
-import { AuthFailureError, BadRequestError } from '../../core/ApiError.js';
+import {
+  AuthFailureError,
+  BadRequestError,
+  ForbiddenError,
+} from '../../core/ApiError.js';
 import { SuccessMsgResponse, SuccessResponse } from '../../core/ApiResponse.js';
 import { RoleCode } from '../../database/model/Role.js';
 import User from '../../database/model/User.js';
@@ -157,6 +165,74 @@ router.patch(
   }),
 );
 
+router.get(
+  'sessions/oauth/google',
+  asyncHandler(async (req, res, next) => {
+    try {
+      // Get the code from the query
+      const code = req.query.code;
+      const pathUrl = req.query.state || '/';
+
+      if (!code) {
+        throw new BadRequestError('Authorization code not provided!');
+      }
+
+      // Use the code to get the id and access tokens
+      const { id_token, access_token } = await getGoogleOauthToken(
+        code as string,
+      );
+
+      // Use the token to get the User
+      const { name, verified_email, email, picture } = await getGoogleUser({
+        id_token,
+        access_token,
+      });
+
+      // Check if user is verified
+      if (!verified_email) {
+        throw new ForbiddenError('Google account not verified');
+      }
+
+      // Update user if user already exist or create new user
+      const user = await UserRepo.findByEmail(email);
+      const accessTokenKey = crypto.randomBytes(64).toString('hex');
+      const refreshTokenKey = crypto.randomBytes(64).toString('hex');
+
+      if (!user) {
+        const { user: createdUser, keystore } = await UserRepo.create(
+          {
+            name,
+            email,
+            profilePicUrl: picture,
+            password: '',
+          } as User,
+          accessTokenKey,
+          refreshTokenKey,
+          RoleCode.LEARNER,
+        );
+        const tokens = await createTokens(
+          createdUser,
+          keystore.primaryKey,
+          keystore.secondaryKey,
+        );
+        const userData = await getUserData(createdUser);
+        new SuccessResponse('Signup Successful', {
+          user: userData,
+          tokens: tokens,
+        }).send(res);
+
+        res.redirect(
+          `${process.env.GOOGLE_OAUTH_CLIENT_URL}${pathUrl}dashboard`,
+        );
+      }
+
+      res.redirect(`${process.env.GOOGLE_OAUTH_CLIENT_URL}${pathUrl}dashboard`);
+    } catch (err) {
+      console.log('Failed to authorize Google User', err);
+      return res.redirect(`${process.env.GOOGLE_OAUTH_CLIENT_URL}/oauth/error`);
+    }
+  }),
+);
 /*-------------------------------------------------------------------------*/
 router.use(authentication);
 /*-------------------------------------------------------------------------*/
