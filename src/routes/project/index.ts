@@ -42,10 +42,6 @@ router.post(
       scope: req.body.scope,
       projectLead: req.user,
       key,
-      //   tags: req.body.tags,
-      //   blogUrl: req.body.blogUrl,
-      //   imgUrl: req.body.imgUrl,
-      //   score: req.body.score,
       createdBy: req.user,
       updatedBy: req.user,
     } as Project);

@@ -1,3 +1,4 @@
+import { Types } from 'mongoose';
 import { Issue, IssueModel } from '../model/Issue.js';
 
 async function create(issue: Issue): Promise<Issue> {
@@ -8,4 +9,8 @@ async function create(issue: Issue): Promise<Issue> {
   return createdProject.toObject();
 }
 
-export default { create };
+async function allIssuesByProject(id: Types.ObjectId): Promise<Issue[]> {
+  return IssueModel.find({ projectId: id }).exec();
+}
+
+export default { create, allIssuesByProject };
