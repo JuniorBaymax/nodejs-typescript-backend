@@ -24,7 +24,7 @@ router.get(
 
     return new SuccessResponse(
       'success',
-      _.pick(user, ['name', 'email', 'profilePicUrl', 'roles']),
+      _.pick(user, ['_id', 'name', 'email', 'profilePicUrl', 'roles']),
     ).send(res);
   }),
 );
