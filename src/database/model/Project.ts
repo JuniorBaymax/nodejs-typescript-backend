@@ -59,7 +59,6 @@ const schema = new Schema<Project>(
       default: 0, // Initialize the counter to 0
     },
     tasks: [{ type: Types.ObjectId, ref: 'Task' }],
-    issues: [{ type: Types.ObjectId, ref: 'Issue' }],
     createdBy: {
       type: Schema.Types.ObjectId,
       ref: 'User',

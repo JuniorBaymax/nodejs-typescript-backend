@@ -29,6 +29,7 @@ interface IIssueStatusChange {
 export interface Issue extends Document {
   title: string;
   description: string;
+  summary: string;
   dueDate: Date;
   createdDate: Date;
   updatedDate: Date;
@@ -41,8 +42,8 @@ export interface Issue extends Document {
   epicLink: string;
   storyPoints: number;
   projectId: Record<string, unknown>;
-  assignee: Record<string, unknown>;
-  reporter: string[];
+  assignee: string[];
+  reporter: Record<string, unknown>;
   watchers: string[];
   components: string[];
   environment: string;
@@ -59,6 +60,7 @@ export interface Issue extends Document {
 const issueSchema = new Schema<Issue>({
   title: String,
   description: String,
+  summary: String,
   dueDate: Date,
   priority: {
     type: String,
@@ -89,16 +91,17 @@ const issueSchema = new Schema<Issue>({
     type: Types.ObjectId,
     ref: 'Project',
   },
-  assignee: {
-    type: Types.ObjectId,
-    ref: 'User',
-  },
-  reporter: [
+  assignee: [
     {
       type: Types.ObjectId,
       ref: 'User',
     },
   ],
+  reporter: {
+    type: Types.ObjectId,
+    ref: 'User',
+  },
+
   watchers: [
     {
       type: Types.ObjectId,

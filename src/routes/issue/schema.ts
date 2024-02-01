@@ -1,8 +1,10 @@
 import Joi from 'joi';
+import { JoiObjectId } from '../../helpers/validator.js';
 
 export default {
   issueCreate: Joi.object().keys({
     title: Joi.string().required(),
+    summary: Joi.string().required(),
     description: Joi.string(),
     dueDate: Joi.date(),
     priority: Joi.string()
@@ -35,6 +37,9 @@ export default {
         createdAt: Joi.date(),
       }),
     ),
-    // Add other custom fields as needed // Assuming issues are represented by their ObjectId strings
   }),
+  projectId: Joi.object().keys({
+    id: JoiObjectId().required(),
+  }),
+  // Add other custom fields as needed // Assuming issues are represented by their ObjectId strings
 };

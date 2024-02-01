@@ -1,5 +1,6 @@
 import { ProtectedRequest } from 'app.request.js';
 import express from 'express';
+import { Types } from 'mongoose';
 import authentication from '../../auth/authentication.js';
 import authorization from '../../auth/authorization.js';
 import { NotFoundResponse, SuccessResponse } from '../../core/ApiResponse.js';
@@ -9,7 +10,7 @@ import IssueRepo from '../../database/repository/IssueRepo.js';
 import ProjectRepo from '../../database/repository/ProjectRepo.js';
 import asyncHandler from '../../helpers/asyncHandler.js';
 import role from '../../helpers/role.js';
-import validator from '../../helpers/validator.js';
+import validator, { ValidationSource } from '../../helpers/validator.js';
 import schema from './schema.js';
 // import BlogRepo from '../../database/repository/BlogRepo.';
 // import task from './task';
@@ -30,11 +31,6 @@ router.post(
   '/',
   validator(schema.issueCreate),
   asyncHandler(async (req: ProtectedRequest, res) => {
-    //  Assigning key, have to check the unique key assignment of created Issue
-    const key = `${req.body.title.split(' ')[0][0]}${
-      req.body.title.split(' ')[1][0]
-    }`;
-
     const existingIssues = await IssueRepo.allIssuesByProject(
       req.body.projectId,
     );
@@ -51,6 +47,7 @@ router.post(
 
       const createdIssue = await IssueRepo.create({
         title: req.body.title,
+        summary: req.body.summary,
         description: req.body.description,
         draftText: req.body.text,
         priority: req.body.priority,
@@ -61,8 +58,9 @@ router.post(
         epicLink: req.body.epicLink,
         storyPoints: req.body.storyPoints,
         projectId: req.body.projectId,
-        assignee: req.user._id,
-        reporter: [req.user._id], // Assuming the user creating the issue is the reporter
+        assignee:
+          req.body.assignee === 'automatic' ? req.user._id : req.body.assignee,
+        reporter: req.body.reporter, // Assuming the user creating the issue is the reporter
         watchers: req.body.watchers,
         components: req.body.components,
         environment: req.body.environment,
@@ -81,6 +79,18 @@ router.post(
   }),
 );
 
+router.get(
+  '/project/id/:id?',
+  validator(schema.projectId, ValidationSource.PARAM),
+  asyncHandler(async (req: ProtectedRequest, res) => {
+    const { id } = req.params;
+    const issues = await IssueRepo.allIssuesByProject(new Types.ObjectId(id));
+
+    if (!issues) {
+      throw new NotFoundResponse('No issues found corresponds to project');
+    }
+    return new SuccessResponse('success', issues).send(res);
+  }),
+);
+
 export default router;
-// router.use('/writer', writer);
-// router.use('/editor', editor);
