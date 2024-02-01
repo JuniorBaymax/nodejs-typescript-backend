@@ -4,7 +4,12 @@ import { Types } from 'mongoose';
 import Project from '~/database/model/Project.js';
 import authentication from '../../auth/authentication.js';
 import authorization from '../../auth/authorization.js';
-import { FailureMsgResponse, SuccessResponse } from '../../core/ApiResponse.js';
+import {
+  FailureMsgResponse,
+  NotFoundResponse,
+  SuccessMsgResponse,
+  SuccessResponse,
+} from '../../core/ApiResponse.js';
 import { RoleCode } from '../../database/model/Role.js';
 import User from '../../database/model/User.js';
 import ProjectRepo from '../../database/repository/ProjectRepo.js';
@@ -110,6 +115,39 @@ router.get(
   }),
 );
 
+router.get(
+  '/users/:id?',
+  validator(schema.projectId, ValidationSource.PARAM),
+  asyncHandler(async (req: ProtectedRequest, res) => {
+    const { id } = req.params;
+
+    const membersByProject = await ProjectRepo.findUsersInProject(
+      new Types.ObjectId(id),
+    );
+
+    console.log({ membersByProject });
+    if (!membersByProject)
+      return new NotFoundResponse('TODO: give response message');
+
+    return new SuccessResponse('Success', membersByProject).send(res);
+  }),
+);
+
+router.patch(
+  '/:id/favorite',
+  validator(schema.projectId, ValidationSource.PARAM),
+  asyncHandler(async (req: ProtectedRequest, res) => {
+    const { id } = req.params;
+    const project = await ProjectRepo.findProjectById(new Types.ObjectId(id));
+
+    if (!project) return new NotFoundResponse('Project not found!');
+
+    project.favorite = true;
+
+    await ProjectRepo.update(project);
+    return new SuccessMsgResponse('Project marked as favorite').send(res);
+  }),
+);
 export default router;
 // router.use('/writer', writer);
 // router.use('/editor', editor);
