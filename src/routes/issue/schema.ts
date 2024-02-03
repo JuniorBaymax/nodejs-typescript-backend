@@ -41,5 +41,8 @@ export default {
   projectId: Joi.object().keys({
     id: JoiObjectId().required(),
   }),
+  userId: Joi.object().keys({
+    id: JoiObjectId().required(),
+  }),
   // Add other custom fields as needed // Assuming issues are represented by their ObjectId strings
 };

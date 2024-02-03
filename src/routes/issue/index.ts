@@ -3,11 +3,14 @@ import express from 'express';
 import { Types } from 'mongoose';
 import authentication from '../../auth/authentication.js';
 import authorization from '../../auth/authorization.js';
+import { BadRequestError } from '../../core/ApiError.js';
 import { NotFoundResponse, SuccessResponse } from '../../core/ApiResponse.js';
 import { Issue } from '../../database/model/Issue.js';
 import { RoleCode } from '../../database/model/Role.js';
+import ActivityRepo from '../../database/repository/ActivityRepo.js';
 import IssueRepo from '../../database/repository/IssueRepo.js';
 import ProjectRepo from '../../database/repository/ProjectRepo.js';
+import UserRepo from '../../database/repository/UserRepo.js';
 import asyncHandler from '../../helpers/asyncHandler.js';
 import role from '../../helpers/role.js';
 import validator, { ValidationSource } from '../../helpers/validator.js';
@@ -72,6 +75,13 @@ router.post(
         key,
       } as unknown as Issue);
 
+      await ActivityRepo.create({
+        action: 'issueCreated',
+        userId: req.user,
+        issueKey: key,
+        details: { summary: createdIssue.summary },
+      });
+
       new SuccessResponse('Issue created successfully', createdIssue).send(res);
     } else {
       new NotFoundResponse('Project not found');
@@ -80,7 +90,7 @@ router.post(
 );
 
 router.get(
-  '/project/id/:id?',
+  '/id/:id?/issue-by-project',
   validator(schema.projectId, ValidationSource.PARAM),
   asyncHandler(async (req: ProtectedRequest, res) => {
     const { id } = req.params;
@@ -90,6 +100,42 @@ router.get(
       throw new NotFoundResponse('No issues found corresponds to project');
     }
     return new SuccessResponse('success', issues).send(res);
+  }),
+);
+
+router.get(
+  '/user/:id/assigned-to-me',
+  validator(schema.userId, ValidationSource.PARAM),
+  asyncHandler(async (req: ProtectedRequest, res) => {
+    const { id } = req.params;
+
+    const user = await UserRepo.exists(new Types.ObjectId(id));
+
+    if (!user) throw new BadRequestError('User not registered');
+    const statics = await IssueRepo.userIssueStatistics(new Types.ObjectId(id));
+    console.log('Statics', statics);
+    const issues = await IssueRepo.allIssuesByUser(new Types.ObjectId(id));
+    if (!issues) {
+      throw new NotFoundResponse('User does not have any assigned issue yet!');
+    }
+    return new SuccessResponse('success', issues).send(res);
+  }),
+);
+
+router.get(
+  '/user/:id/user-issue-statics',
+  validator(schema.userId, ValidationSource.PARAM),
+  asyncHandler(async (req: ProtectedRequest, res) => {
+    const { id } = req.params;
+
+    const user = await UserRepo.exists(new Types.ObjectId(id));
+
+    if (!user) throw new BadRequestError('User not registered');
+
+    const statics = await IssueRepo.userIssueStatistics(new Types.ObjectId(id));
+    console.log('Statics', statics);
+
+    return new SuccessResponse('success', statics).send(res);
   }),
 );
 

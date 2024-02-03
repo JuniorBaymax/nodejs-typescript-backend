@@ -35,6 +35,7 @@ export interface Issue extends Document {
   updatedDate: Date;
   priority: 'Highest' | 'High' | 'Medium' | 'Low' | 'Lowest';
   issueType: string;
+  currentUser?: Record<string, unknown>;
   statusHistory: IIssueStatusChange[];
   resolution: string;
   status: string;
@@ -42,7 +43,7 @@ export interface Issue extends Document {
   epicLink: string;
   storyPoints: number;
   projectId: Record<string, unknown>;
-  assignee: string[];
+  assignee: Types.ObjectId[];
   reporter: Record<string, unknown>;
   watchers: string[];
   components: string[];

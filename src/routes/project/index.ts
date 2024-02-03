@@ -1,7 +1,6 @@
 import { ProtectedRequest } from 'app.request.js';
 import express from 'express';
 import { Types } from 'mongoose';
-import Project from '~/database/model/Project.js';
 import authentication from '../../auth/authentication.js';
 import authorization from '../../auth/authorization.js';
 import {
@@ -10,8 +9,11 @@ import {
   SuccessMsgResponse,
   SuccessResponse,
 } from '../../core/ApiResponse.js';
+import { ActivityModel } from '../../database/model/Activity.js';
+import Project from '../../database/model/Project.js';
 import { RoleCode } from '../../database/model/Role.js';
 import User from '../../database/model/User.js';
+import IssueRepo from '../../database/repository/IssueRepo.js';
 import ProjectRepo from '../../database/repository/ProjectRepo.js';
 import UserRepo from '../../database/repository/UserRepo.js';
 import asyncHandler from '../../helpers/asyncHandler.js';
@@ -116,7 +118,7 @@ router.get(
 );
 
 router.get(
-  '/users/:id?',
+  '/:id?/members',
   validator(schema.projectId, ValidationSource.PARAM),
   asyncHandler(async (req: ProtectedRequest, res) => {
     const { id } = req.params;
@@ -146,6 +148,54 @@ router.patch(
 
     await ProjectRepo.update(project);
     return new SuccessMsgResponse('Project marked as favorite').send(res);
+  }),
+);
+
+router.get(
+  '/:id/activity',
+  validator(schema.projectId, ValidationSource.PARAM),
+  asyncHandler(async (req: ProtectedRequest, res) => {
+    const { id } = req.params;
+
+    const issues = await IssueRepo.allIssuesByProject(new Types.ObjectId(id));
+
+    if (!issues) {
+      throw new NotFoundResponse('No issues found corresponds to project');
+    }
+
+    const issueKeys = issues.map((issue) => issue.key);
+    const activities = await ActivityModel.aggregate([
+      {
+        $match: { issueKey: { $in: issueKeys } },
+      },
+      {
+        $lookup: {
+          from: 'users', // Assuming the name of the User collection is 'users'
+          localField: 'userId',
+          foreignField: '_id',
+          as: 'userDetails',
+        },
+      },
+      {
+        $unwind: '$userDetails', // Unwind the array created by $lookup
+      },
+      {
+        $project: {
+          _id: 1,
+          timestamp: 1,
+          action: 1,
+          issueKey: 1,
+          details: 1,
+          // Include only the fields you need
+          'userDetails._id': 1,
+          'userDetails.name': 1,
+          'userDetails.email': 1,
+          'userDetails.profilePicUrl': 1,
+        },
+      },
+      // Add other stages of the aggregation pipeline as needed
+    ]);
+    return new SuccessResponse('Success', activities).send(res);
   }),
 );
 export default router;
