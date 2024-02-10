@@ -134,7 +134,7 @@ const issueSchema = new Schema<Issue>({
     type: Schema.Types.ObjectId,
     ref: 'User',
     // required: true,
-    select: false,
+    select: true,
     index: true,
   },
   updatedBy: {
@@ -146,12 +146,12 @@ const issueSchema = new Schema<Issue>({
   createdAt: {
     type: Date,
     // required: true,
-    select: false,
+    select: true,
   },
   updatedAt: {
     type: Date,
     // required: true,
-    select: false,
+    select: true,
   },
   key: String,
 });
