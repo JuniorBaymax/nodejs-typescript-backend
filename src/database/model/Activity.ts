@@ -5,7 +5,10 @@ export default interface Activity {
   userId: User;
   action: string;
   issueKey: string;
-  details: Record<string, unknown>;
+  details: {
+    summary: string;
+    actionDetails?: Array<{ field: string; oldValue: any; newValue: any }>;
+  };
   timestamp?: Date;
 }
 
@@ -17,7 +20,16 @@ const schema = new Schema<Activity>({
   userId: { type: Schema.Types.ObjectId, ref: 'User' },
   action: String,
   issueKey: String,
-  details: { summary: String },
+  details: {
+    summary: String,
+    actionDetails: [
+      {
+        field: String,
+        oldValue: Schema.Types.Mixed,
+        newValue: Schema.Types.Mixed,
+      },
+    ],
+  },
 });
 
 export const ActivityModel = model<Activity>('Activity', schema, 'activity');
