@@ -4,7 +4,11 @@ import { Types } from 'mongoose';
 import authentication from '../../auth/authentication.js';
 import authorization from '../../auth/authorization.js';
 import { BadRequestError } from '../../core/ApiError.js';
-import { NotFoundResponse, SuccessResponse } from '../../core/ApiResponse.js';
+import {
+  NotFoundResponse,
+  SuccessMsgResponse,
+  SuccessResponse,
+} from '../../core/ApiResponse.js';
 import { Issue } from '../../database/model/Issue.js';
 import { RoleCode } from '../../database/model/Role.js';
 import ActivityRepo from '../../database/repository/ActivityRepo.js';
@@ -89,6 +93,50 @@ router.post(
   }),
 );
 
+router.patch(
+  '/:issueKey/update',
+  validator(schema.issueId, ValidationSource.PARAM),
+  validator(schema.updateIssue, ValidationSource.BODY),
+  asyncHandler(async (req: ProtectedRequest, res) => {
+    const { issueKey } = req.params;
+    const updateFields = req.body;
+
+    // Retrieve the existing issue
+    const existingIssue = await IssueRepo.findIssueById(
+      new Types.ObjectId(issueKey),
+    );
+
+    if (!existingIssue) throw new BadRequestError('Issue does not exists');
+
+    // Compare existing and updated fields to identify changes
+    const updatedFields = Object.keys(updateFields).filter(
+      (field) => existingIssue.get(field) !== updateFields[field],
+    );
+
+    const updatedIssue = await IssueRepo.update({
+      _id: issueKey,
+      ...updateFields,
+    });
+
+    // Update activity based on the identified changes
+    if (updatedFields.length > 0) {
+      const actionDetails = updatedFields.map((field) => ({
+        field,
+        oldValue: existingIssue.get(field),
+        newValue: updateFields[field],
+      }));
+
+      const response = await ActivityRepo.create({
+        action: 'issueUpdated',
+        userId: req.user,
+        issueKey: updatedIssue?.key as string,
+        details: { summary: 'Issue updated', actionDetails },
+      });
+    }
+
+    return new SuccessMsgResponse('Issue updated successfully').send(res);
+  }),
+);
 router.get(
   '/id/:id?/issue-by-project',
   validator(schema.projectId, ValidationSource.PARAM),
@@ -112,8 +160,7 @@ router.get(
     const user = await UserRepo.exists(new Types.ObjectId(id));
 
     if (!user) throw new BadRequestError('User not registered');
-    const statics = await IssueRepo.userIssueStatistics(new Types.ObjectId(id));
-    console.log('Statics', statics);
+
     const issues = await IssueRepo.allIssuesByUser(new Types.ObjectId(id));
     if (!issues) {
       throw new NotFoundResponse('User does not have any assigned issue yet!');
@@ -124,18 +171,22 @@ router.get(
 
 router.get(
   '/user/:id/user-issue-statics',
-  validator(schema.userId, ValidationSource.PARAM),
+  validator(schema.projectId, ValidationSource.PARAM),
   asyncHandler(async (req: ProtectedRequest, res) => {
     const { id } = req.params;
-
-    const user = await UserRepo.exists(new Types.ObjectId(id));
+    const currentUserId = req.user._id;
+    console.log('Current User id', currentUserId);
+    const user = await UserRepo.exists(new Types.ObjectId(currentUserId));
 
     if (!user) throw new BadRequestError('User not registered');
 
-    const statics = await IssueRepo.userIssueStatistics(new Types.ObjectId(id));
-    console.log('Statics', statics);
+    const statics = await IssueRepo.userIssueStatistics(
+      currentUserId,
+      new Types.ObjectId(id),
+    );
+    console.log('Statics', statics[0]);
 
-    return new SuccessResponse('success', statics).send(res);
+    return new SuccessResponse('success', statics[0]).send(res);
   }),
 );
 

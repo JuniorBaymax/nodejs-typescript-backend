@@ -9,6 +9,15 @@ async function create(issue: Issue): Promise<Issue> {
   return createdProject.toObject();
 }
 
+async function update(issue: Issue): Promise<Issue | null> {
+  issue.updatedAt = new Date();
+  return IssueModel.findByIdAndUpdate(issue._id, issue, { new: true }).exec();
+}
+
+async function findIssueById(id: Types.ObjectId): Promise<Issue | null> {
+  return IssueModel.findOne({ _id: id }).exec();
+}
+
 async function allIssuesByProject(id: Types.ObjectId): Promise<Issue[]> {
   return IssueModel.find({ projectId: id }).exec();
 }
@@ -20,10 +29,14 @@ async function allIssuesByUser(id: Types.ObjectId): Promise<Issue[]> {
       select: '-password', // Exclude sensitive information
       match: { _id: id }, // Match only the current user in the assignee array
     })
+    .sort({ createdAt: 1 })
     .exec();
 }
 
-async function userIssueStatistics(userId: Types.ObjectId): Promise<any> {
+async function userIssueStatistics(
+  userId: Types.ObjectId,
+  projectId: Types.ObjectId,
+): Promise<any> {
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
@@ -38,6 +51,7 @@ async function userIssueStatistics(userId: Types.ObjectId): Promise<any> {
             ],
           },
           { createdAt: { $gte: sevenDaysAgo } }, // Filter issues created in the last 7 days
+          { projectId },
         ],
       },
     },
@@ -89,6 +103,8 @@ async function userIssueStatistics(userId: Types.ObjectId): Promise<any> {
 
 export default {
   create,
+  update,
+  findIssueById,
   allIssuesByProject,
   allIssuesByUser,
   userIssueStatistics,

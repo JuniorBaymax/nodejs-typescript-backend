@@ -38,11 +38,45 @@ export default {
       }),
     ),
   }),
+  updateIssue: Joi.object({
+    title: Joi.string(),
+    summary: Joi.string(),
+    description: Joi.string(),
+    dueDate: Joi.date(),
+    priority: Joi.string().valid('Highest', 'High', 'Medium', 'Low', 'Lowest'),
+    issueType: Joi.string().valid('Task', 'Bug', 'Story', 'Epic'),
+    resolution: Joi.string(),
+    status: Joi.string(), // Allow updating status
+    labels: Joi.array().items(Joi.string()),
+    epicLink: Joi.string(),
+    storyPoints: Joi.number(),
+    assignee: Joi.string(),
+    watchers: Joi.array().items(Joi.string()),
+    components: Joi.array().items(Joi.string()),
+    environment: Joi.string(),
+    attachments: Joi.array().items(
+      Joi.object({
+        name: Joi.string(),
+        url: Joi.string(),
+      }),
+    ),
+    linkedIssues: Joi.array().items(Joi.string()),
+    comments: Joi.array().items(
+      Joi.object({
+        userId: Joi.string().required(),
+        text: Joi.string().required(),
+        createdAt: Joi.date(),
+      }),
+    ),
+  }),
   projectId: Joi.object().keys({
     id: JoiObjectId().required(),
   }),
   userId: Joi.object().keys({
     id: JoiObjectId().required(),
+  }),
+  issueId: Joi.object().keys({
+    issueKey: JoiObjectId().required(),
   }),
   // Add other custom fields as needed // Assuming issues are represented by their ObjectId strings
 };
