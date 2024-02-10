@@ -1,13 +1,17 @@
 import express from 'express';
-import { SuccessResponse } from '../../core/ApiResponse.js';
+import { SuccessMsgResponse, SuccessResponse } from '../../core/ApiResponse.js';
 import UserRepo from '../../database/repository/UserRepo.js';
 
 import { ProtectedRequest } from 'app.request.js';
+import bcrypt from 'bcrypt';
+
 import _ from 'lodash';
+import { Types } from 'mongoose';
+import User from '~/database/model/User.js';
 import authentication from '../../auth/authentication.js';
 import { BadRequestError } from '../../core/ApiError.js';
 import asyncHandler from '../../helpers/asyncHandler.js';
-import validator from '../../helpers/validator.js';
+import validator, { ValidationSource } from '../../helpers/validator.js';
 import schema from './schema.js';
 
 const router = express.Router();
@@ -44,6 +48,39 @@ router.put(
     const data = _.pick(user, ['name', 'profilePicUrl']);
 
     return new SuccessResponse('Profile updated', data).send(res);
+  }),
+);
+
+router.patch(
+  '/change-password',
+  validator(schema.changePassword, ValidationSource.BODY),
+  asyncHandler(async (req: ProtectedRequest, res) => {
+    console.log(req.user);
+    const isUserExist = await UserRepo.exists(new Types.ObjectId(req.user._id));
+
+    if (!isUserExist) throw new BadRequestError('User not registered');
+
+    const currentUser = await UserRepo.findById(
+      new Types.ObjectId(req.user._id),
+    );
+
+    const match = await bcrypt.compare(
+      req.body.password,
+      currentUser?.password as string,
+    );
+
+    if (!match) throw new BadRequestError('Your current password is invalid');
+
+    const passwordHash = await bcrypt.hash(req.body.newPassword, 10);
+
+    await UserRepo.updateInfo({
+      _id: req.user._id,
+      password: passwordHash,
+    } as User);
+
+    console.log(match);
+
+    new SuccessMsgResponse('Password has changed successfully!').send(res);
   }),
 );
 
