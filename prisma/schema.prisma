@@ -1,0 +1,134 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("LOCAL_DB_URI")
+}
+
+model VerificationToken {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  client    String   @db.ObjectId
+  createdAt DateTime @db.Date
+  email     String
+  status    Boolean
+  token     String   @unique(map: "token_1")
+  updatedAt DateTime @db.Date
+
+  @@index([client], map: "client_1")
+  @@index([client, email, status], map: "client_1_email_1_status_1")
+  @@index([client, token], map: "client_1_token_1")
+}
+
+model api_keys {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  comments    String[]
+  key         String   @unique(map: "key_1")
+  permissions String[]
+  status      Boolean
+  version     Int
+
+  @@index([key, status], map: "key_1_status_1")
+}
+
+model Issues {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  v             Int      @map("__v")
+  assignee      String   @db.ObjectId
+  /// Could not determine type: the field only had null or empty values in the sample set.
+  attachments   Json?
+  /// Could not determine type: the field only had null or empty values in the sample set.
+  comments      Json?
+  /// Could not determine type: the field only had null or empty values in the sample set.
+  components    Json?
+  createdAt     DateTime @db.Date
+  createdBy     String   @db.ObjectId
+  description   String
+  epicLink      String
+  issueType     String
+  labels        String[]
+  /// Could not determine type: the field only had null or empty values in the sample set.
+  linkedIssues  Json?
+  priority      String
+  projectId     String   @db.ObjectId
+  reporter      String[]
+  resolution    String
+  status        String
+  /// Could not determine type: the field only had null or empty values in the sample set.
+  statusHistory Json?
+  title         String
+  updatedAt     DateTime @db.Date
+  updatedBy     String   @db.ObjectId
+  /// Could not determine type: the field only had null or empty values in the sample set.
+  watchers      String[]?
+
+  @@index([createdBy], map: "createdBy_1")
+  @@index([projectId], map: "projectId_1")
+}
+
+model Keystores {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  client       String   @db.ObjectId
+  createdAt    DateTime @db.Date
+  primaryKey   String
+  secondaryKey String
+  status       Boolean
+  updatedAt    DateTime @db.Date
+
+  @@index([client], map: "client_1")
+  @@index([client, primaryKey, status], map: "client_1_primaryKey_1_status_1")
+  @@index([client, primaryKey, secondaryKey], map: "client_1_primaryKey_1_secondaryKey_1")
+}
+
+model Projects {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  v            Int      @map("__v")
+  createdAt    DateTime @db.Date
+  createdBy    String   @db.ObjectId
+  description  String
+  favorite     Boolean
+  issueCounter Int
+  /// Could not determine type: the field only had null or empty values in the sample set.
+  issues       Issues @relation(fields: [id], references: [id])
+  key          String
+  projectLead  String   @db.ObjectId
+  scope        String
+  /// Could not determine type: the field only had null or empty values in the sample set.
+  tasks        Json?
+  title        String
+  updatedAt    DateTime @db.Date
+  updatedBy    String   @db.ObjectId
+  users        String[]
+
+  @@index([createdBy], map: "createdBy_1")
+  @@index([id, title], map: "_id_1_title_1")
+}
+
+model Roles {
+  id     String  @id @default(auto()) @map("_id") @db.ObjectId
+  code   String
+  status Boolean
+
+  @@index([code, status], map: "code_1_status_1")
+}
+
+model Users {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  /// Multiple data types found: String: 12.5%, DateTime (Date): 87.5% out of 8 sampled entries
+  createdAt     DateTime
+  email         String   @unique(map: "email_1")
+  name          String
+  password      String
+  profilePicUrl String?
+  projects      String[]
+  /// Multiple data types found: String (ObjectId): 12.5%, Array(String (ObjectId)): 87.5% out of 8 sampled entries
+  roles         Roles @relation(fields: [id], references: [id])
+  status        Boolean
+  /// Multiple data types found: String: 12.5%, DateTime (Date): 87.5% out of 8 sampled entries
+  updatedAt     DateTime
+  verified      Boolean
+
+  @@index([id, status], map: "_id_1_status_1")
+  @@index([status], map: "status_1")
+}
