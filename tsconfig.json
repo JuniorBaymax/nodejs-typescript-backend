@@ -1,0 +1,36 @@
+{
+  "compilerOptions": {
+    "module": "NodeNext",
+    "lib": ["ESNext", "DOM"],
+    // Import non-ES modules as default imports.
+    "esModuleInterop": true,
+    // Target latest version of ECMAScript.
+    "target": "ES2019",
+    // Process & infer types from .js files.
+    "allowJs": false,
+    // Enable strictNullChecks & noImplicitAny.
+    "strictNullChecks": true,
+    "noImplicitAny": true,
+    "strict": true,
+    "strictFunctionTypes": false,
+    "noImplicitThis": false,
+    // Search under node_modules for non-relative imports.
+    "moduleResolution": "NodeNext",
+    "skipLibCheck": true,
+    // Import .json files
+    "resolveJsonModule": true,
+    "sourceMap": true,
+    "rootDirs": ["src"],
+    "outDir": "build",
+    "baseUrl": ".",
+    "rootDir": "./src",
+    "forceConsistentCasingInFileNames": true,
+    "paths": {
+      "*": ["src/types/*"],
+      "~/*": ["./src/*"]
+    }
+  },
+  "files": ["src/types/types.d.ts"],
+  "include": ["src/**/*", "**/*.ts"],
+  "exclude": ["node_modules/*", ".templates"]
+}

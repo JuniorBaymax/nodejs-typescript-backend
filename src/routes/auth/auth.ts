@@ -1,0 +1,248 @@
+import { ProtectedRequest, PublicRequest } from 'app.request.js';
+import bcrypt from 'bcrypt';
+import crypto from 'crypto';
+import express, { Response } from 'express';
+import _ from 'lodash';
+import { v4 as uuidv4 } from 'uuid';
+import {
+  createTokens,
+  getGoogleOauthToken,
+  getGoogleUser,
+} from '../../auth/authUtils.js';
+import authentication from '../../auth/authentication.js';
+import {
+  AuthFailureError,
+  BadRequestError,
+  ForbiddenError,
+} from '../../core/ApiError.js';
+import { SuccessMsgResponse, SuccessResponse } from '../../core/ApiResponse.js';
+import { RoleCode } from '../../database/model/Role.js';
+import User from '../../database/model/User.js';
+import { VerificationTokenModel } from '../../database/model/VerificationToken.js';
+import { default as KeyStoreRepo } from '../../database/repository/KeyStoreRepo.js';
+import UserRepo from '../../database/repository/UserRepo.js';
+import VerificationTokenRepo from '../../database/repository/VerificationTokenRepo.js';
+import asyncHandler from '../../helpers/asyncHandler.js';
+import { sendPasswordResetEmail } from '../../helpers/mail.js';
+import validator, { ValidationSource } from '../../helpers/validator.js';
+import schema from './schema.js';
+import { getUserData } from './utils.js';
+
+const router = express.Router();
+
+router.post(
+  '/login',
+  validator(schema.credential),
+  asyncHandler(async (req: PublicRequest, res) => {
+    const user = await UserRepo.findByEmail(req.body.email);
+
+    if (!user) throw new BadRequestError('User not registered');
+    if (!user.password) throw new BadRequestError('Credential not set');
+
+    const match = await bcrypt.compare(req.body.password, user.password);
+    if (!match) throw new AuthFailureError('Authentication failure');
+
+    const accessTokenKey = crypto.randomBytes(64).toString('hex');
+    const refreshTokenKey = crypto.randomBytes(64).toString('hex');
+
+    await KeyStoreRepo.create(user, accessTokenKey, refreshTokenKey);
+    const tokens = await createTokens(user, accessTokenKey, refreshTokenKey);
+    const userData = await getUserData(user);
+
+    new SuccessResponse('Login Success', {
+      user: userData,
+      tokens: tokens,
+    }).send(res);
+  }),
+);
+
+router.post(
+  '/signup',
+  validator(schema.signup),
+  asyncHandler(async (req: PublicRequest, res) => {
+    const user = await UserRepo.findByEmail(req.body.email);
+
+    if (user) throw new BadRequestError('User already registered');
+
+    const accessTokenKey = crypto.randomBytes(64).toString('hex');
+    const refreshTokenKey = crypto.randomBytes(64).toString('hex');
+
+    const passwordHash = await bcrypt.hash(req.body.password, 10);
+
+    const { user: createdUser, keystore } = await UserRepo.create(
+      {
+        name: req.body.name,
+        email: req.body.email,
+        profilePicUrl: req.body.profilePicUrl,
+        password: passwordHash,
+      } as User,
+      accessTokenKey,
+      refreshTokenKey,
+      RoleCode.LEARNER,
+    );
+
+    const tokens = await createTokens(
+      createdUser,
+      keystore.primaryKey,
+      keystore.secondaryKey,
+    );
+    const userData = await getUserData(createdUser);
+
+    new SuccessResponse('Signup Successful', {
+      user: userData,
+      tokens: tokens,
+    }).send(res);
+  }),
+);
+
+router.post(
+  '/forgot-password',
+  validator(schema.resetPassword, ValidationSource.BODY),
+  asyncHandler(async (req: PublicRequest, res: Response) => {
+    const email = req.body.email;
+    const user = await UserRepo.findByEmail(req.body.email);
+    if (!user) throw new AuthFailureError('User not registered');
+
+    const token = uuidv4();
+    /**
+     * The token will expires in 1 hour
+     */
+    const expires = new Date(new Date().getTime() + 3600 * 1000);
+
+    const existingToken = await VerificationTokenRepo.findByEmail(email);
+
+    if (existingToken) {
+      await VerificationTokenModel.findByIdAndDelete(existingToken._id);
+    }
+
+    const twoFactorToken = await VerificationTokenRepo.create(
+      user,
+      email,
+      token,
+      expires,
+    );
+
+    await sendPasswordResetEmail(email, twoFactorToken.token);
+    new SuccessResponse('Verification token sent successfully!', {
+      token: twoFactorToken,
+    }).send(res);
+  }),
+);
+
+router.patch(
+  '/new-password/:token',
+  validator(schema.verifyToken, ValidationSource.PARAM),
+  validator(schema.newPassword, ValidationSource.BODY),
+  asyncHandler(async (req: PublicRequest, res: Response) => {
+    const token = req.params.token;
+    console.log({ token });
+
+    const existingToken = await VerificationTokenRepo.findByKey(token);
+
+    console.log(existingToken);
+    if (!existingToken) throw new BadRequestError('Invalid token!');
+
+    const hasExpired = new Date(existingToken.expires) < new Date();
+
+    if (hasExpired) throw new BadRequestError('Token has expired!');
+
+    const user = await UserRepo.findById(existingToken.client);
+
+    if (!user) throw new BadRequestError('Email does not exist');
+
+    const passwordHash = await bcrypt.hash(req.body.password, 10);
+    await UserRepo.updateInfo({
+      _id: user._id,
+      password: passwordHash,
+    } as User);
+
+    await KeyStoreRepo.removeAllForClient(user);
+    await VerificationTokenRepo.remove(existingToken._id);
+    new SuccessResponse(
+      'User password updated',
+      _.pick(user, ['_id', 'name', 'email']),
+    ).send(res);
+  }),
+);
+
+router.get(
+  'sessions/oauth/google',
+  asyncHandler(async (req, res, next) => {
+    try {
+      // Get the code from the query
+      const code = req.query.code;
+      const pathUrl = req.query.state || '/';
+
+      if (!code) {
+        throw new BadRequestError('Authorization code not provided!');
+      }
+
+      // Use the code to get the id and access tokens
+      const { id_token, access_token } = await getGoogleOauthToken(
+        code as string,
+      );
+
+      // Use the token to get the User
+      const { name, verified_email, email, picture } = await getGoogleUser({
+        id_token,
+        access_token,
+      });
+
+      // Check if user is verified
+      if (!verified_email) {
+        throw new ForbiddenError('Google account not verified');
+      }
+
+      // Update user if user already exist or create new user
+      const user = await UserRepo.findByEmail(email);
+      const accessTokenKey = crypto.randomBytes(64).toString('hex');
+      const refreshTokenKey = crypto.randomBytes(64).toString('hex');
+
+      if (!user) {
+        const { user: createdUser, keystore } = await UserRepo.create(
+          {
+            name,
+            email,
+            profilePicUrl: picture,
+            password: '',
+          } as User,
+          accessTokenKey,
+          refreshTokenKey,
+          RoleCode.LEARNER,
+        );
+        const tokens = await createTokens(
+          createdUser,
+          keystore.primaryKey,
+          keystore.secondaryKey,
+        );
+        const userData = await getUserData(createdUser);
+        new SuccessResponse('Signup Successful', {
+          user: userData,
+          tokens: tokens,
+        }).send(res);
+
+        res.redirect(
+          `${process.env.GOOGLE_OAUTH_CLIENT_URL}${pathUrl}dashboard`,
+        );
+      }
+
+      res.redirect(`${process.env.GOOGLE_OAUTH_CLIENT_URL}${pathUrl}dashboard`);
+    } catch (err) {
+      console.log('Failed to authorize Google User', err);
+      return res.redirect(`${process.env.GOOGLE_OAUTH_CLIENT_URL}/oauth/error`);
+    }
+  }),
+);
+/*-------------------------------------------------------------------------*/
+router.use(authentication);
+/*-------------------------------------------------------------------------*/
+
+router.delete(
+  '/logout',
+  asyncHandler(async (req: ProtectedRequest, res) => {
+    await KeyStoreRepo.remove(req.keystore._id);
+    new SuccessMsgResponse('Logout success').send(res);
+  }),
+);
+
+export default router;

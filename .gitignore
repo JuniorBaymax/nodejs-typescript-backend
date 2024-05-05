@@ -1,0 +1,7 @@
+node_modules
+oshop-3d90e-firebase-adminsdk-vhr0b-1b6f2f6bb9.json
+src/keys/private.pem
+src/keys/public.pem
+build/
+logs/*
+.env
