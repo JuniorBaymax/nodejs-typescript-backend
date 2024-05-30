@@ -8,8 +8,9 @@ import initializeSocket from './loaders/socket.io.js';
 // cache; // cache initialization
 const app = express();
 
-// Socket.io
 const server = http.createServer(app);
+
+// Socket.io
 const io = initializeSocket(server);
 
 app.set('io', io);

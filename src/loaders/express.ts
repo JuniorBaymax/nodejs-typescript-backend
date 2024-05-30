@@ -114,15 +114,13 @@ const expressLoader = (app: Application): void => {
         );
         Logger.error(err);
         if (environment === 'development') {
-          console.log('first', err);
-
           return res.status(500).send(err);
         }
         ApiError.handle(new InternalError(), res);
       }
     });
   } catch (error) {
-    console.log('on error', error);
+    Logger.error(error);
   }
 };
 
